@@ -1,0 +1,27 @@
+[
+    {
+        "index": 0,
+        "timestamp": 1765244453.002037,
+        "data": "Genesis",
+        "previous_hash": "0",
+        "hash": "cd9d8eaa0e50fa7d4db571061d392ae6b70899f1d3c4af29228d26ee267a2a8a"
+    },
+    {
+        "index": 1,
+        "timestamp": 1765244453.0147321,
+        "data": [
+            "Log file created at 2025-12-09-02-40-53E\n"
+        ],
+        "previous_hash": "cd9d8eaa0e50fa7d4db571061d392ae6b70899f1d3c4af29228d26ee267a2a8a",
+        "hash": "e9b93c3a3a118183688e62e9cf77329b3c248fa98f8d110fd3c598d8f3c83b73"
+    },
+    {
+        "index": 2,
+        "timestamp": 1765244458.0204365,
+        "data": [
+            "Log file created at 2025-12-09-02-40-53E\n"
+        ],
+        "previous_hash": "e9b93c3a3a118183688e62e9cf77329b3c248fa98f8d110fd3c598d8f3c83b73",
+        "hash": "1f30f3711b1fa706c4148d29b6e14afc3bb32c6501ac6ee8c824ce4054d5aba4"
+    }
+]
