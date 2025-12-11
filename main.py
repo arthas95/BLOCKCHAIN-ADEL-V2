@@ -217,3 +217,4 @@ if __name__ == "__main__":
 
     # Vérification d’intégrité des fichiers
     bc.verify_file()
+

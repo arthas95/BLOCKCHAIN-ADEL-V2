@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Blockchain Visualizer</title>
+<style>
+body {
+    background: #0d1117;
+    color: white;
+    font-family: Arial, sans-serif;
+    text-align: center;
+    padding: 40px;
+}
+
+/* Conteneur serpent */
+#snake {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    justify-content: center;
+    margin-top: 40px;
+    animation: wave 3s infinite ease-in-out;
+}
+
+/* Animation serpent qui ondule */
+@keyframes wave {
+    0%   { transform: translateX(0px); }
+    25%  { transform: translateX(8px); }
+    50%  { transform: translateX(0px); }
+    75%  { transform: translateX(-8px); }
+    100% { transform: translateX(0px); }
+}
+
+/* Bloc général */
+.block {
+    width: 80px;
+    height: 80px;
+    background: #1f6feb;
+    border-radius: 50%;
+    position: relative;
+    cursor: pointer;
+    transition: transform .2s;
+}
+
+/* Tête du serpent */
+.snake-head {
+    background: #2ea043;
+    border-radius: 50%;
+    position: relative;
+}
+
+/* Les yeux du serpent */
+.snake-head::before,
+.snake-head::after {
+    content: "";
+    width: 10px;
+    height: 10px;
+    background: white;
+    border-radius: 50%;
+    position: absolute;
+    top: 22px;
+}
+
+.snake-head::before {
+    left: 20px;
+}
+.snake-head::after {
+    right: 20px;
+}
+
+/* Effet survol */
+.block:hover {
+    transform: scale(1.2);
+    background: #238636;
+}
+
+/* Tooltip */
+.tooltip {
+    display: none;
+    position: absolute;
+    top: 90px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 280px;
+    background: #161b22;
+    border: 1px solid #30363d;
+    padding: 10px;
+    border-radius: 10px;
+    z-index: 10;
+    text-align: left;
+    font-size: 12px;
+    color: #c9d1d9;
+}
+
+.block:hover .tooltip {
+    display: block;
+}
+</style>
+</head>
+<body>
+
+<h1>🐍 Blockchain Serpent Visualizer</h1>
+<p>Passe ta souris sur un bloc pour voir les infos.</p>
+
+<div id="snake"></div>
+
+<script>
+async function loadChain() {
+    const res = await fetch("http://localhost:8000/chain");
+    const chain = await res.json();
+
+    const container = document.getElementById("snake");
+
+    chain.forEach((block, index) => {
+        const div = document.createElement("div");
+
+        // Le premier bloc représente la tête du serpent
+        if (index === 0) {
+            div.classList.add("block", "snake-head");
+        } else {
+            div.classList.add("block");
+        }
+
+        div.innerHTML = `
+            <div class="tooltip">
+                <strong>Bloc #${block.index}</strong><br>
+                <strong>Timestamp :</strong> ${new Date(block.timestamp * 1000).toLocaleString()}<br>
+                <strong>Hash :</strong> ${block.hash}<br>
+                <strong>Prev Hash :</strong> ${block.previous_hash}<br>
+                <strong>Données :</strong> ${block.data}
+            </div>
+        `;
+
+        container.appendChild(div);
+    });
+}
+
+loadChain();
+</script>
+
+</body>
+</html>
