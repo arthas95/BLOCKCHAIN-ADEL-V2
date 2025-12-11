@@ -1,47 +1,39 @@
-import hashlib, time
+import hashlib
+import time
 from datetime import datetime
 import random
 import json
+import os
+
 
 # ------------------------------------------------------------
 #  CLASS BLOCK
 # ------------------------------------------------------------
 class Block:
-    def __init__(self, index, data, previous_hash):
-        # index du bloc dans la chaîne (position dans la blockchain)
+    def __init__(self, index, data, previous_hash, timestamp=None, given_hash=None):
+        # position dans la blockchain
         self.index = index
-        
-        # timestamp = moment exact de la création du bloc
-        # Ce timestamp participe au hash → donc impossible de reproduire le bloc
-        self.timestamp = time.time()
-        
-        # data = contenu du bloc
-        # Ici : texte, logs, transactions, etc.
+
+        # timestamp du bloc
+        if timestamp is None:
+            self.timestamp = time.time()
+        else:
+            self.timestamp = timestamp
+
+        # contenu du bloc (ici : hash du fichier log)
         self.data = data
-        
-        # previous_hash = hash du bloc précédent
-        # C'est le CHAÎNAGE CRYPTOGRAPHIQUE
+
+        # hash du bloc précédent (chaînage)
         self.previous_hash = previous_hash
-        
-        # hash du bloc ACTUEL
-        # calculé automatiquement à la création
-        self.hash = self.calc_hash()
-        
+
+        # hash du bloc actuel
+        if given_hash is None:
+            self.hash = self.calc_hash()
+        else:
+            self.hash = given_hash
+
     def calc_hash(self):
-        """
-        Le hash du bloc est calculé à partir de :
-        - index
-        - timestamp
-        - data
-        - previous_hash
-        
-        Ce mélange rend le bloc IMMUTABLE :
-        → si tu changes UNE lettre de data, le hash change complètement
-        → et donc toute la blockchain devient invalide
-        """
         contenue = f"{self.index}{self.timestamp}{self.data}{self.previous_hash}"
-        
-        # SHA-256 : fonction de hachage cryptographique
         return hashlib.sha256(contenue.encode()).hexdigest()
 
 
@@ -50,143 +42,110 @@ class Block:
 # ------------------------------------------------------------
 class Blockchain:
     def __init__(self):
-        # La blockchain est une LISTE ordonnée de blocs
-        # Elle commence toujours par un bloc Genesis
+        # toujours commencer par le bloc Genesis
         self.chain = [self.genesis()]
-    
+
     def genesis(self):
-        """
-        Le premier bloc de l'histoire :
-        - index = 0
-        - data = "Genesis"
-        - previous_hash = "0" car personne avant lui
-        """
         return Block(0, "Genesis", "0")
-    
+
     def add_block(self, data):
-        """
-        Ajoute un NOUVEAU bloc dans la blockchain :
-        Etapes :
-        1. On récupère le DERNIER bloc de la chaîne
-        2. On crée un bloc avec :
-           - index = taille de la chaîne
-           - previous_hash = hash du dernier bloc
-        3. On ajoute le bloc à la liste
-        """
-        prev = self.chain[-1]  # bloc précédent
-        
-        # nouveau bloc avec previous_hash = HASH du bloc précédent
+        prev = self.chain[-1]
         new = Block(len(self.chain), data, prev.hash)
-        
-        # on ajoute ce bloc dans la chaîne
         self.chain.append(new)
-    
+
     def verify(self):
-        """
-        Vérifie l'intégrité TOTALE de la blockchain.
-        
-        Pour CHAQUE bloc à partir du 2e :
-        - Vérifie que previous_hash == hash du bloc précédent
-        - Recacule le hash et compare avec celui enregistré
-        
-        Si tout est bon → blockchain valide.
-        """
-        
-        # Cas trivial : seulement Genesis → forcément valide
         if len(self.chain) == 1:
             print("Blockchain valide (un seul bloc)")
             return True
 
-        # On commence à 1 car le bloc 0 n'a pas de précédent
         for i in range(1, len(self.chain)):
-            cur = self.chain[i]    # bloc courant
-            old = self.chain[i-1]  # bloc précédent
-            
-            # Vérification du chaînage : le maillon doit pointer vers le bon hash
+            cur = self.chain[i]
+            old = self.chain[i - 1]
+
             if cur.previous_hash != old.hash:
                 print(f"❌ Rupture du chaînage au bloc {i}")
                 return False
-            
-            # Vérification du hash interne (intégrité du bloc)
+
             recalculated = cur.calc_hash()
             if recalculated != cur.hash:
                 print(f"❌ Données modifiées dans le bloc {i}")
                 print(f"Hash enregistré :   {cur.hash}")
                 print(f"Hash recalculé :    {recalculated}")
                 return False
-        
+
         print("✅ Blockchain valide")
         return True
 
+    def verify_file(self):
+        base_dir = "logs_in"
+        files = [f for f in sorted(os.listdir(base_dir))
+                 if os.path.isfile(os.path.join(base_dir, f))]
 
-# ------------------------------------------------------------
-#  PROGRAMME PRINCIPAL
-# ------------------------------------------------------------
-if __name__ == "__main__":
+        ok = True
 
-    json_file = "transactions.json"
-    bc = Blockchain()  # création de la blockchain
-    
-    # ⚠️ ATTENTION ⚠️
-    # Ce code écrase ton fichier JSON et ne met QUE le Genesis dedans.
-    # Je le laisse car tu veux comprendre, mais normalement tu le supprimes.
-    with open(json_file,"w") as f:
-        transactions = {
-            "index": bc.chain[0].index,
-            "timestamp": bc.chain[0].timestamp,
-            "data": bc.chain[0].data,
-            "previous_hash": bc.chain[0].previous_hash,
-            "hash": bc.chain[0].hash
-        }
-        json.dump(transactions, f, indent=4)
+        for i, filename in enumerate(files):
+            # bloc 1 ↔ premier fichier
+            if 1 + i >= len(self.chain):
+                print(f"❌ Pas de bloc pour le fichier {filename}")
+                ok = False
+                continue
 
-    # Vérification simple de la blockchain actuelle
-    bc.verify()
+            block = self.chain[1 + i]
+
+            path = os.path.join(base_dir, filename)
+            # IMPORTANT : même façon de hasher que lors de la création
+            with open(path, "r", encoding="utf-8") as file:
+                file_hash = hashlib.sha256(file.read().encode()).hexdigest()
+
+            if block.data != file_hash:
+                print(f"❌ Données modifiées pour le fichier {filename} dans le bloc {block.index}.")
+                print(f"   attendu : {block.data}")
+                print(f"   actuel  : {file_hash}")
+                ok = False
+            else:
+                print(f"✅ Fichier {filename} vérifié avec succès dans le bloc {block.index}.")
+
+        if len(self.chain) - 1 > len(files):
+            print(f"⚠️ Il y a {len(self.chain)-1} blocs pour seulement {len(files)} fichiers.")
+            ok = False
+
+        return ok
 
 
-# ------------------------------------------------------------
-# UTILITAIRES : LOAD / SAVE / LOG
-# ------------------------------------------------------------
-
-# identifiant unique pour logs (juste pour éviter collisions)
+# identifiant unique pour logs (si tu en as besoin plus tard)
 now = datetime.now().strftime("%Y-%m-%d-%H-%M-%S") + random.choice(["A","B","C","D","E","F"])
 
+
+# ------------------------------------------------------------
+# UTILITAIRES : LOAD / SAVE
+# ------------------------------------------------------------
 def load_chain_from_json(filename):
-    """
-    Permet de reconstruire toute la blockchain
-    à partir d'un fichier JSON.
-    
-    On recrée chaque bloc → même index, même data, même timestamp
-    """
     bc = Blockchain()
-    bc.chain = []  # on vide la blockchain actuelle
-    
+    bc.chain = []
+
     with open(filename, "r", encoding="utf-8") as f:
-        data = json.load(f)  # liste de dicts
-    
+        try:
+            data = json.load(f)  # liste de dicts
+        except json.JSONDecodeError:
+            print("Erreur : le fichier JSON est invalide.")
+            return Blockchain()
+
     for d in data:
-        # reconstitution d'un bloc
         block = Block(
             index=d["index"],
             data=d["data"],
-            previous_hash=d["previous_hash"]
+            previous_hash=d["previous_hash"],
+            timestamp=d["timestamp"],
+            given_hash=d["hash"],
         )
-        
-        # On remet les valeurs EXACTES du fichier
-        block.timestamp = d["timestamp"]
-        block.hash = d["hash"]
-        
         bc.chain.append(block)
-    
+
     return bc
 
 
 def save_chain_to_json(blockchain, filename):
-    """
-    Sauvegarde de toute la blockchain dans un fichier JSON.
-    """
     data = []
-    
+
     for b in blockchain.chain:
         block_data = {
             "index": b.index,
@@ -196,48 +155,65 @@ def save_chain_to_json(blockchain, filename):
             "hash": b.hash
         }
         data.append(block_data)
-    
-    with open(filename, "w") as f:
+
+    with open(filename, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4)
 
 
-def create_log_file():
-    """
-    1. Crée un petit fichier log
-    2. Lit son contenu
-    3. Ajoute un bloc dans la blockchain avec ces données
-    """
-    
-    # nom du fichier log
-    filename = f"log_{now}" + str(random.randint(1,3)) + ".txt"
-    
-    # on écrit le log (1 ligne)
-    with open(filename, "w") as file:
-        file.write("Log file created at " + now + "\n")
-    
-    # on relit le contenu → devient DATA du bloc
-    with open(filename, "r", encoding="utf-8") as file:
-        contenue = file.readlines()
-        
-        # chaque log crée un NOUVEAU bloc
-        bc.add_block(contenue)
+# ------------------------------------------------------------
+# LOGS → BLOCS
+# ------------------------------------------------------------
+def send_to_create():
+    LOG_IN = "logs_in"
+    for filename in sorted(os.listdir(LOG_IN)):
+        path = os.path.join(LOG_IN, filename)
+        if not os.path.isfile(path):
+            continue
+        create_log_file(path)
 
+
+def create_log_file(path):
+    # hash du contenu texte du fichier (mode texte + utf-8)
+    with open(path, "r", encoding="utf-8") as file:
+        contenue = hashlib.sha256(file.read().encode()).hexdigest()
+    bc.add_block(contenue)
+
+
+json_file = "transactions.json"
 
 
 # ------------------------------------------------------------
-# TESTS : AJOUT DE LOGS → SAUVEGARDE → RECHARGEMENT → VERIF
+# PROGRAMME PRINCIPAL
 # ------------------------------------------------------------
+if __name__ == "__main__":
 
-# 2 logs = 2 blocs ajoutés
-create_log_file()
-time.sleep(5)
-create_log_file()
+    if os.path.exists(json_file):
+        bc = load_chain_from_json(json_file)
+    else:
+        bc = Blockchain()
+        save_chain_to_json(bc, json_file)
 
-# Sauvegarde JSON
-save_chain_to_json(bc, json_file)
+        # contrôle optionnel du genesis
+        with open(json_file, "r", encoding="utf-8") as f:
+            chain = json.load(f)
+        if (not isinstance(chain, list)) or (not chain) or chain[0].get("index") != 0:
+            print("BLOC GENESIS MANQUANT OU INVALIDE : RECREATION DU FICHIER JSON")
+            genesis = {
+                "index": 0,
+                "timestamp": time.time(),
+                "data": "Genesis",
+                "previous_hash": "0",
+                "hash": Block(0, "Genesis", "0").hash,
+            }
+            with open(json_file, "w", encoding="utf-8") as f:
+                json.dump([genesis], f, indent=4)
+            bc = load_chain_from_json(json_file)
 
-# Rechargement depuis le JSON
-bc2 = load_chain_from_json(json_file)
+    # Création des blocs à partir des fichiers dans logs_in
+    send_to_create()
 
-# Vérification d'intégrité
-bc2.verify()
+    # Sauvegarde de la blockchain
+    save_chain_to_json(bc, json_file)
+
+    # Vérification d’intégrité des fichiers
+    bc.verify_file()
